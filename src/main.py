@@ -138,7 +138,7 @@ def write_candidate(
             f.write(source)
     with open(os.path.join(output_dir, "score.txt"), "x", encoding="utf-8") as f:
         f.write(f"{result.score}\n")
-    with open(os.path.join(output_dir, "diff.txt"), "x", encoding="utf-8") as f:
+    with open(os.path.join(output_dir, "diff.diff"), "x", encoding="utf-8") as f:
         f.write(perm.diff(source) + "\n")
     print(f"wrote to {output_dir}")
 

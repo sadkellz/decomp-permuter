@@ -74,6 +74,7 @@ SETTINGS_FILES = [
     "permuter_settings.toml",
     "tools/permuter_settings.toml",
     "config/permuter_settings.toml",
+    "nonmatchings/permuter_settings.toml",
 ]
 
 
@@ -95,11 +96,13 @@ def formatcmd(cmdline: List[str]) -> str:
     return " ".join(shlex.quote(arg) for arg in cmdline)
 
 
-def prune_asm(asm_cont: str) -> Tuple[str, str]:
+def prune_asm(asm_cont: str, target_func: Optional[str] = None) -> Tuple[str, str]:
     func_name = None
     asm_lines: List[str] = []
     late_rodata: List[str] = []
     cur_section = ".text"
+    in_target_function = False
+    
     for line in asm_cont.splitlines(keepends=True):
         changed_section = False
         line_parts = line.split()
@@ -123,24 +126,65 @@ def prune_asm(asm_cont: str) -> Tuple[str, str]:
                 late_rodata.append(line)
             continue
 
+        # Check for function start with glabel or .globl
         if (
-            func_name is None
-            and cur_section == ".text"
+            cur_section == ".text"
             and len(line_parts) >= 2
             and line_parts[0] in ("glabel", ".globl")
         ):
-            func_name = line_parts[1]
-        asm_lines.append(line)
+            current_func = line_parts[1]
+            if target_func is None or current_func == target_func:
+                func_name = current_func
+                in_target_function = True
+            else:
+                in_target_function = False
+        # Check for function start with .fn directive
+        elif (
+            cur_section == ".text"
+            and len(line_parts) >= 2
+            and line_parts[0] == ".fn"
+        ):
+            current_func = line_parts[1].rstrip(',')
+            if target_func is None or current_func == target_func:
+                func_name = current_func
+                in_target_function = True
+            else:
+                in_target_function = False
+        # Check for function end with .endfn directive
+        elif (
+            in_target_function
+            and len(line_parts) >= 1
+            and line_parts[0] == ".endfn"
+        ):
+            asm_lines.append(line)
+            break  # Stop after the target function ends
+        
+        # Skip .include directives as they won't be available
+        if len(line_parts) >= 1 and line_parts[0] == ".include":
+            continue
+            
+        # Skip .file directives as they're not needed
+        if len(line_parts) >= 1 and line_parts[0] == ".file":
+            continue
+        
+        if in_target_function or (func_name is None and target_func is None):
+            asm_lines.append(line)
 
     # ".late_rodata" is non-standard asm, so we add it to the end of the file as ".rodata"
     if late_rodata:
         asm_lines.extend(["\n.section .rodata\n"] + late_rodata)
 
     if func_name is None:
-        print(
-            "Missing function name in assembly file! The file should start with 'glabel function_name'.",
-            file=sys.stderr,
-        )
+        if target_func:
+            print(
+                f"Could not find function '{target_func}' in assembly file! Make sure the function exists.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "Missing function name in assembly file! The file should contain 'glabel function_name', '.globl function_name', or '.fn function_name, visibility'.",
+                file=sys.stderr,
+            )
         sys.exit(1)
 
     if not re.fullmatch(RE_FUNC_NAME, func_name):
@@ -196,7 +240,7 @@ def find_global_asm_func(root_dir: str, c_file: str, func_name: str) -> str:
 
 
 def parse_asm(
-    root_dir: str, c_file: str, asm_file_or_func_name: str
+    root_dir: str, c_file: str, asm_file_or_func_name: str, target_func: Optional[str] = None
 ) -> Tuple[str, str]:
     require_matching_func_name = False
     try:
@@ -210,7 +254,7 @@ def parse_asm(
             print("Could not open assembly file:", e, file=sys.stderr)
             sys.exit(1)
 
-    ret = prune_asm(asm_cont)
+    ret = prune_asm(asm_cont, target_func)
     if require_matching_func_name and ret[0] != asm_file_or_func_name:
         # Safe-guard, since we currently only support one function per .s file.
         # Once that restriction is lifted it would be fine to return
@@ -220,13 +264,14 @@ def parse_asm(
     return ret
 
 
-def create_directory(func_name: str) -> str:
-    os.makedirs("nonmatchings/", exist_ok=True)
+def create_directory(func_name: str, root_dir: str = ".") -> str:
+    nonmatchings_dir = os.path.join(root_dir, "nonmatchings")
+    os.makedirs(nonmatchings_dir, exist_ok=True)
     ctr = 0
     while True:
         ctr += 1
         dirname = f"{func_name}-{ctr}" if ctr > 1 else func_name
-        dirname = f"nonmatchings/{dirname}"
+        dirname = os.path.join(nonmatchings_dir, dirname)
         try:
             os.mkdir(dirname)
             return dirname
@@ -572,17 +617,26 @@ def import_c_file(
             include_next -= 1
             cpp_command.append(arg)
             continue
-        if arg in ["-D", "-U", "-I"]:
-            cpp_command.append(arg)
+        if arg in ["-D", "-U", "-I", "-i"]:
+            # Convert lowercase -i to uppercase -I for cpp
+            if arg == "-i":
+                cpp_command.append("-I")
+            else:
+                cpp_command.append(arg)
             include_next = 1
             continue
         if (
             arg.startswith("-D")
             or arg.startswith("-U")
             or arg.startswith("-I")
+            or arg.startswith("-i")
             or arg in ["-nostdinc"]
         ):
-            cpp_command.append(arg)
+            # Convert lowercase -i to uppercase -I for cpp
+            if arg.startswith("-i"):
+                cpp_command.append("-I" + arg[2:])
+            else:
+                cpp_command.append(arg)
 
     try:
         if preserve_macros is None:
@@ -828,10 +882,17 @@ def main(arg_list: List[str]) -> None:
     parser.add_argument(
         "asm_file_or_func_name",
         metavar="{asm_file|func_name}",
+        nargs="?",
         help="""File containing assembly for the function.
         Must start with 'glabel <function_name>' and contain no other functions.
         Alternatively, a function name can be given, which will be looked for in
-        all GLOBAL_ASM blocks in the C file.""",
+        all GLOBAL_ASM blocks in the C file.
+        If omitted, will try to auto-detect based on the C file path.""",
+    )
+    parser.add_argument(
+        "--function",
+        dest="target_function",
+        help="Specific function name to extract from the assembly file (if multiple functions exist).",
     )
     parser.add_argument(
         "make_flags",
@@ -932,15 +993,55 @@ def main(arg_list: List[str]) -> None:
             "please set 'compiler_type' in this project's permuter_settings.toml."
         )
 
-    func_name, asm_cont = parse_asm(root_dir, args.c_file, args.asm_file_or_func_name)
+    # Auto-detect assembly file if not provided
+    asm_file_or_func_name = args.asm_file_or_func_name
+    if asm_file_or_func_name is None:
+        # Try to auto-detect based on common patterns or settings
+        c_path = os.path.abspath(args.c_file)
+        
+        # Check if there's a custom pattern in settings
+        asm_pattern = get_setting("asm_pattern")
+        if asm_pattern:
+            # Apply the pattern (e.g., "src/ -> build/GALE01/asm/")
+            pattern_parts = asm_pattern.split(" -> ")
+            if len(pattern_parts) == 2:
+                src_pattern, asm_pattern = pattern_parts
+                asm_path = c_path.replace(src_pattern, asm_pattern)
+                asm_path = asm_path[:-2] + ".s"  # Replace .c with .s
+                if os.path.exists(asm_path):
+                    asm_file_or_func_name = asm_path
+                    print(f"Auto-detected assembly file: {asm_path}")
+        
+        if asm_file_or_func_name is None:
+            # Common pattern: src/path/file.c -> build/GALE01/asm/path/file.s
+            if "/src/" in c_path:
+                asm_path = c_path.replace("/src/", "/build/GALE01/asm/")
+                asm_path = asm_path[:-2] + ".s"  # Replace .c with .s
+                if os.path.exists(asm_path):
+                    asm_file_or_func_name = asm_path
+                    print(f"Auto-detected assembly file: {asm_path}")
+                else:
+                    # Try other common patterns
+                    asm_path = c_path.replace("/src/", "/asm/")
+                    asm_path = asm_path[:-2] + ".s"
+                    if os.path.exists(asm_path):
+                        asm_file_or_func_name = asm_path
+                        print(f"Auto-detected assembly file: {asm_path}")
+        
+        if asm_file_or_func_name is None:
+            print("Could not auto-detect assembly file. Please provide the assembly file path.", file=sys.stderr)
+            print("Tip: You can set 'asm_pattern' in permuter_settings.toml (e.g., asm_pattern = \"/src/ -> /build/GALE01/asm/\")")
+            sys.exit(1)
+    
+    func_name, asm_cont = parse_asm(root_dir, args.c_file, asm_file_or_func_name, args.target_function)
     print(f"Function name: {func_name}")
 
     if compiler_str or assembler_str:
         assert (
             build_system_raw is None
         ), "Must not specify both build system and compiler/assembler"
-        compiler = shlex.split(compiler_str)
-        assembler = shlex.split(assembler_str)
+        compiler = shlex.split(compiler_str) if compiler_str else []
+        assembler = shlex.split(assembler_str) if assembler_str else []
     else:
         compiler, assembler = find_build_command_line(
             root_dir, args.c_file, make_flags, build_system
@@ -995,7 +1096,7 @@ def main(arg_list: List[str]) -> None:
 
     source, compilable_source = prune_source(source, args.prune, func_name)
 
-    dirname = create_directory(func_name)
+    dirname = create_directory(func_name, root_dir)
     base_c_file = f"{dirname}/base.c"
     base_o_file = f"{dirname}/base.o"
     target_s_file = f"{dirname}/target.s"
@@ -1010,7 +1111,8 @@ def main(arg_list: List[str]) -> None:
         )
         write_compile_command(compiler, root_dir, compile_script)
         write_asm(asm_prelude_file, asm_cont, target_s_file)
-        compile_asm(assembler, root_dir, target_s_file, target_o_file)
+        if assembler:  # Only compile assembly if assembler is specified
+            compile_asm(assembler, root_dir, target_s_file, target_o_file)
         if compilable_source is not None:
             compile_base(compile_script, compilable_source, base_c_file, base_o_file)
     except:
