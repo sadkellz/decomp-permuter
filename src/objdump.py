@@ -157,7 +157,7 @@ PPC_SETTINGS: ArchSettings = ArchSettings(
     re_reg=re.compile(r"\$?\b([rf](?:[02-9]|[1-9][0-9]+)|f1)\b"),  # leave out r1
     re_sprel=re.compile(r"(?<=,)(-?[0-9]+|-?0x[0-9a-f]+)\(r1\)"),
     reloc_str="R_PPC_",
-    executable=["powerpc-eabi-objdump"],
+    executable=["build/binutils/powerpc-eabi-objdump"],
     arguments=["-dr", "-EB", "-mpowerpc", "-M", "broadway"],
     branch_instructions=PPC_BRANCH_INSTRUCTIONS,
     branch_likely_instructions=PPC_BRANCH_LIKELY_INSTRUCTIONS,
