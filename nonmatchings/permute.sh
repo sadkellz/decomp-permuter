@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-PERM="../test/decomp-permuter"
+PERM="../decomp-permuter"
 FILE="$1"
 [[ $FILE != *.c ]] && FILE="${FILE}.c"
 python "$PERM/import.py" "src/melee/$FILE" --function "$2"
