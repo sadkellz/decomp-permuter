@@ -7,8 +7,7 @@ import re
 from typing import Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
 
 from pycparser import c_ast as ca, c_generator
-from pycparser.c_parser import CParser
-from pycparser.plyparser import ParseError
+from pycparser.c_parser import CParser, ParseError
 
 from .error import CandidateConstructionFailure
 from .ast_types import SimpleType, set_decl_name

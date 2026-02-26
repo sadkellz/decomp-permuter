@@ -223,6 +223,7 @@ class Scorer:
                 *(len(line.mnemonic) for line in self.target_seq),
                 *(len(line.mnemonic) for line in cand_seq),
                 0,
+                0,
             )
 
             def format_line(

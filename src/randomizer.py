@@ -1816,7 +1816,7 @@ def perm_cast_simple(
 
     # Surround the original expression with a cast to the chosen type
     typedecl = ca.TypeDecl(None, [], [], ca.IdentifierType(new_type))
-    new_expr = ca.Cast(ca.Typename(None, [], [], typedecl), expr)
+    new_expr = ca.Cast(ca.Typename(None, [], None, typedecl), expr)
     replace_node(fn.body, expr, new_expr)
 
 

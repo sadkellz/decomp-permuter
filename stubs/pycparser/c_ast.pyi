@@ -33,6 +33,7 @@ Expression = Union_[
     "Cast",
     "CompoundLiteral",
     "Constant",
+    "Compound",
     "ExprList",
     "FuncCall",
     "ID",
@@ -133,7 +134,6 @@ class NodeVisitor:
 
 class Alignas(Node):
     alignment: Union_[Expression, Typename]
-    coord: Optional[Coord]
 
     def __init__(
         self,
@@ -501,14 +501,14 @@ class Typedef(Node):
 class Typename(Node):
     name: None
     quals: List[str]
-    align: List[Alignas]
+    align: None
     type: Type
 
     def __init__(
         self,
         name: None,
         quals: List[str],
-        align: List[Alignas],
+        align: None,
         type: Type,
         coord: Optional[Coord] = None,
     ): ...
