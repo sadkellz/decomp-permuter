@@ -1,12 +1,12 @@
 # Setup Melee version
-- create a venv with `python -m venv .venv` 
-- source the venv with `source .venv/bin/activate` 
-- setup the requirements with `python3 -m pip install pycparser pynacl toml Levenshtein` 
-- run `ninja tools` in the melee repo 
-- copy the `nonmatching` folder to the root of your melee decomp folder 
-- copy the .sh script out of hte nonmatching folder and into the root of your melee folder 
-- edit the .sh script to point to your decomp-permuter folder 
-- to use: run `./permute [file path] [function name]` e.g. `./permute.sh gm/gm_1601 gm_80160B40` 
+- Create a venv with `python -m venv .venv` 
+- Source the venv with `source .venv/bin/activate` 
+- Setup the requirements with `python3 -m pip install pycparser pynacl toml Levenshtein` 
+- Run `ninja tools` in the melee decomp repository
+- Copy the `nonmatching` folder to the root of your melee decomp repository 
+- Copy the .sh script out of hte nonmatching folder and into the root of your melee decomp repository 
+- Edit the .sh script to point to your decomp-permuter folder 
+- To use: run `./permute [file path] [function name]` e.g. `./permute.sh gm/gm_1601 gm_80160B40` 
 
 
 # Decomp permuter
