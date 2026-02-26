@@ -1,3 +1,14 @@
+HELLO JELLE HERE I AM TELLING YOU HOW TO SET THIS UP
+CREATE A VENV WITH `python -m venv .venv`
+SOURCE THE VENV WITH `source .venv/bin/activate`
+SETUP THER REQUIREMENTS WITH `python3 -m pip install pycparser pynacl toml Levenshtein`i
+RUN NINJA TOOLS IN THE MELEE REPO
+COPY THE `nonmatching` FOLDER TO THE ROOT OF YOUR MELEE FOLDER
+COPY THE .SH SCRIPT OUT OF THE NONMATCHING FOLDER AND INTO THE ROOT OF YOUR MELEE FOLDER
+EDIT THE .SH SCRIPT TO POINT TO YOUR PERMUTER FOLDER
+RUN `./permute [file path] [function name]` e.g. `./permute.sh gm/gm_1601 gm_80160B40`
+
+
 # Decomp permuter
 
 Automatically permutes C files to better match a target binary. The permuter has two modes of operation:
