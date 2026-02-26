@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-PERM="../decomp-permuter"
+PERM="../test/decomp-permuter"
 FILE="$1"
 [[ $FILE != *.c ]] && FILE="${FILE}.c"
-"$PERM/import.py" "meleeDecomp/src/melee/$FILE" --function "$2"
-"$PERM/permuter.py" "../meleeDecomp/nonmatchings/$2/" -j64
+python "$PERM/import.py" "src/melee/$FILE" --function "$2"
+python "$PERM/permuter.py" "nonmatchings/$2/" -j64
