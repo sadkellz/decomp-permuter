@@ -4,7 +4,7 @@
 - Setup the requirements with `python3 -m pip install pycparser pynacl toml Levenshtein` 
 - Run `ninja tools` in the melee decomp repository
 - Copy the `nonmatchings` folder to the root of your melee decomp repository 
-- Copy the .sh script out of the nonmatchings folder and into the root of your melee decomp repository 
+- Copy the .sh script and the permuter_settings.toml out of the nonmatchings folder and into the root of your melee decomp repository 
 - Edit the .sh script to point to your decomp-permuter folder 
 - To use: run `./permute [file path] [function name]` e.g. `./permute.sh gm/gm_1601 gm_80160B40` 
 
